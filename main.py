@@ -11,9 +11,7 @@ def main():
     pygame.init()
     try:
         pygame.font.init()
-        print("Pygame font module initialized")
     except pygame.error as e:
-        print(f"Error initializing pygame font module: {e}")
         sys.exit(1)
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -28,7 +26,6 @@ def main():
         while not loading.is_finished():
             loading.update()
     else:
-        print("Error: Pygame not initialized for LoadingScene")
         pygame.quit()
         sys.exit(1)
 
@@ -38,14 +35,12 @@ def main():
         while not introduce.is_finished():
             introduce.update()
     else:
-        print("Error: Pygame not initialized for IntroduceScene")
         pygame.quit()
         sys.exit(1)
 
     while True:
         # Menu scene
         if not pygame.get_init():
-            print("Error: Pygame not initialized, reinitializing")
             pygame.init()
             pygame.font.init()
             screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -56,45 +51,52 @@ def main():
         result = menu.run()
 
         if result is None:
-            print("Exiting game via menu quit")
             break
 
         if isinstance(result, tuple) and result[0] == "continue":
-            print("Resuming game with saved state")
-            if result[1] and isinstance(result[1], dict) and "config" in result[1]:
-                game_result = maingame(
-                    result[1]["config"], saved_state=result[1])
+            if result[1] and isinstance(result[1], dict):
+                config = result[1].get("config", {
+                                       "mode": "Player vs AI", "difficulty": "Easy", "map": "New Map", "mummy_algorithm": "A*"})
+                game_result = maingame(config, saved_state=result[1])
             else:
-                print("Error: Invalid saved state for continue, missing 'config'")
-                # Hiển thị thông báo lỗi trong menu
                 font = pygame.font.SysFont("Papyrus", 28)
                 error_text = font.render(
-                    "Cannot continue: Invalid saved game!", True, (255, 0, 0))
+                    "Cannot continue: No saved game!", True, (255, 0, 0))
                 screen.fill((0, 0, 0))
                 screen.blit(error_text, (WIDTH // 2 - error_text.get_width() // 2,
                                          HEIGHT // 2 - error_text.get_height() // 2))
                 pygame.display.flip()
-                pygame.time.wait(2000)  # Chờ 2 giây
+                pygame.time.wait(2000)  # Wait 2 seconds
                 continue
-        elif isinstance(result, dict):
-            required_keys = ["mode", "difficulty", "map", "mummy_algorithm"]
-            if all(k in result for k in required_keys) and result["mode"] in ["Player vs AI", "AI vs AI"]:
-                print("Starting new game with config:", result)
-                game_result = maingame(result)
+        elif isinstance(result, tuple) and result[0] == "start_game":
+            config = result[1]
+            if isinstance(config, dict):
+                required_keys = ["mode", "difficulty",
+                                 "map", "mummy_algorithm"]
+                if all(k in config for k in required_keys) and config["mode"] in ["Player vs AI", "AI vs AI"]:
+                    game_result = maingame(config)
+                else:
+                    font = pygame.font.SysFont("Papyrus", 28)
+                    error_text = font.render(
+                        "Invalid game configuration!", True, (255, 0, 0))
+                    screen.fill((0, 0, 0))
+                    screen.blit(error_text, (WIDTH // 2 - error_text.get_width() // 2,
+                                             HEIGHT // 2 - error_text.get_height() // 2))
+                    pygame.display.flip()
+                    pygame.time.wait(2000)  # Wait 2 seconds
+                    continue
             else:
-                print("Error: Invalid config from menu:", result)
                 continue
         else:
-            print("Error: Unexpected menu result:", result)
             continue
 
         if game_result and isinstance(game_result, tuple) and game_result[0] == "menu":
-            print("Returned to menu with saved state")
             saved_state = game_result[1]
-            # Chỉ đặt True nếu saved_state không rỗng
-            has_saved_game = bool(saved_state)
+            # Validate saved_state to set has_saved_game
+            has_saved_game = bool(saved_state and isinstance(saved_state, dict) and
+                                  "maze" in saved_state and "players" in saved_state and
+                                  "mummy" in saved_state and "item_data" in saved_state)
         else:
-            print("Game ended, clearing saved state")
             saved_state = None
             has_saved_game = False
 
