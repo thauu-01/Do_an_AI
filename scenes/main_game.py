@@ -5,75 +5,52 @@ import os
 import math
 import heapq
 import copy
-from scenes.algorithm import heuristic, get_valid_moves, find_path_astar, find_path_dfs, find_path_sa, a_star, find_path_backtracking, find_path_qlearning, search_no_observation_bfs_maze
+from scenes.algorithm import heuristic, get_valid_moves, find_path_astar, find_path_dfs, find_path_sa, a_star, find_path_backtracking, find_path_qlearning, search_no_observation_bfs_maze, ACTIONS, is_valid_move_maze
 import ctypes
 import sys
+import time
 
 
 def maingame(config, saved_state=None):
-    print("Starting maingame with config:", config,
-          "and saved_state:", saved_state is not None)
-    # Kiểm tra config hợp lệ
     if not isinstance(config, dict):
-        print("Error: Invalid config, expected a dictionary, got:", config)
-        return None
+        return ("menu", {})
 
-    # Lấy cấu hình game với giá trị mặc định
+    # Extract config with defaults
     mode = config.get("mode", "AI vs AI")
     difficulty = config.get("difficulty", "Easy")
     map_name = config.get("map", "New Map")
     human_algorithm = config.get("human_algorithm", None)
     mummy_algorithm = config.get("mummy_algorithm", "A*")
-    old_map = config.get("old_map", None)  # Lấy Old Map từ config
+    old_map = config.get("old_map", None)
 
-    # Kiểm tra các giá trị cần thiết
+    # Validate config
     if mode not in ["Player vs AI", "AI vs AI"]:
-        print(f"Error: Invalid mode '{mode}', defaulting to 'AI vs AI'")
         mode = "AI vs AI"
     if mummy_algorithm not in ["A*", "DFS", "SA", "Backtracking"]:
-        print(
-            f"Error: Invalid mummy_algorithm '{mummy_algorithm}', defaulting to 'A*'")
         mummy_algorithm = "A*"
     if map_name not in ["Old Map", "New Map"]:
-        print(f"Error: Invalid map '{map_name}', defaulting to 'New Map'")
         map_name = "New Map"
     if mode == "Player vs AI" and human_algorithm is not None:
-        print(
-            f"Warning: human_algorithm should be None in Player vs AI mode, got '{human_algorithm}', setting to None")
         human_algorithm = None
     elif mode == "AI vs AI" and human_algorithm not in ["A*", "DFS", "SA", "Q-Learning", "Backtracking", "BFS-NoObs"]:
-        print(
-            f"Error: Invalid human_algorithm '{human_algorithm}', defaulting to 'A*'")
         human_algorithm = "A*"
+    if map_name == "Old Map" and (old_map is None or not isinstance(old_map, np.ndarray) or old_map.shape != (15, 21)):
+        map_name = "New Map"
+        old_map = None
 
-    # Thiết lập kích thước mê cung và cửa sổ
     width_maze, height_maze = 21, 15
-    width, height = 1540, 800  # Kích thước cố định
+    width, height = 1540, 800
     cell_size = 50
 
-    # Lấy độ phân giải màn hình để kiểm tra
     user32 = ctypes.windll.user32
-    screen_width = user32.GetSystemMetrics(0)
-    screen_height = user32.GetSystemMetrics(1)
-    print(f"Screen resolution: {screen_width}x{screen_height}")
-    print(f"Requested window size: {width}x{height}")
-
-    # Khởi tạo Pygame với kích thước cố định
     pygame.init()
     pygame.mixer.init()
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Maze Game')
 
-    # Đặt vị trí cửa sổ ở góc trên bên trái
     window_handle = pygame.display.get_wm_info()['window']
     user32.SetWindowPos(window_handle, 0, -10, 0, width, height, 0)
-    print(f"Window positioned at: (0, 0)")
 
-    # Lấy kích thước thực tế của cửa sổ để debug
-    real_width, real_height = screen.get_size()
-    print(f"Actual window size: {real_width}x{real_height}")
-
-    # Thiết lập font chữ
     menu_font = pygame.font.SysFont(
         "Press Start 2P", 24, bold=True) or pygame.font.SysFont("consolas", 24, bold=True)
     score_font = pygame.font.SysFont(
@@ -87,42 +64,32 @@ def maingame(config, saved_state=None):
     notification_font = pygame.font.SysFont(
         "Press Start 2P", 40, bold=True) or pygame.font.SysFont("consolas", 40, bold=True)
 
-    # Nhạc nền
     music_on = True
     music_path = os.path.join(os.path.dirname(
         __file__), "..", "sounds", "game.mp3")
-    if not os.path.exists(music_path):
-        print(f"Error: Music file {music_path} not found")
-        music_on = False
-    else:
+    if os.path.exists(music_path):
         try:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play(-1)
-        except pygame.error as e:
-            print(f"Error loading game music: {e}")
+        except pygame.error:
             music_on = False
 
-    # Tải âm thanh nhặt item
     click_sound_path = os.path.join(os.path.dirname(
         __file__), "..", "sounds", "click_sound.mp3")
     click_sound = None
     if os.path.exists(click_sound_path):
         try:
             click_sound = pygame.mixer.Sound(click_sound_path)
-        except pygame.error as e:
-            print(f"Error loading click sound: {e}")
+        except pygame.error:
+            pass
 
-    # Lấy đường dẫn thư mục chứa script
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Tải hình ảnh nhân vật từ sprite sheet nhathamhiem.png
     running_frames = []
     player_sprite_path = os.path.join(
         base_dir, "..", "images", "nhathamhiem.png")
     if not os.path.exists(player_sprite_path):
-        print(
-            f"Critical error: Sprite sheet {player_sprite_path} not found. Exiting...")
         pygame.quit()
         sys.exit(1)
     try:
@@ -134,14 +101,12 @@ def maingame(config, saved_state=None):
                 frame = sprite_sheet.subsurface(pygame.Rect(
                     col * frame_size, row * frame_size, frame_size, frame_size))
                 running_frames.append(frame)
-    except pygame.error as e:
-        print(f"Error loading sprite sheet {player_sprite_path}: {e}")
+    except pygame.error:
         for _ in range(8):
             frame = pygame.Surface((50, 50), pygame.SRCALPHA)
             frame.fill((255, 0, 0))
             running_frames.append(frame)
 
-    # Tải hình ảnh mummy
     mummy_frames = []
     for i in range(1, 5):
         mummy_path = os.path.join(
@@ -151,18 +116,15 @@ def maingame(config, saved_state=None):
                 frame = pygame.image.load(mummy_path).convert_alpha()
                 frame = pygame.transform.scale(frame, (50, 50))
                 mummy_frames.append(frame)
-            except pygame.error as e:
-                print(f"Error loading {mummy_path}: {e}")
+            except pygame.error:
                 frame = pygame.Surface((50, 50), pygame.SRCALPHA)
                 frame.fill((139, 69, 19))
                 mummy_frames.append(frame)
         else:
-            print(f"Warning: File {mummy_path} not found")
             frame = pygame.Surface((50, 50), pygame.SRCALPHA)
             frame.fill((139, 69, 19))
             mummy_frames.append(frame)
 
-    # Tải hình ảnh item
     item_images = []
     for i in range(1, 6):
         path = os.path.join(base_dir, "..", "images", "items", f"item{i}.png")
@@ -171,61 +133,51 @@ def maingame(config, saved_state=None):
                 image = pygame.image.load(path).convert_alpha()
                 image = pygame.transform.scale(image, (cell_size, cell_size))
                 item_images.append(image)
-            except pygame.error as e:
-                print(f"Error loading {path}: {e}")
+            except pygame.error:
                 placeholder = pygame.Surface(
                     (cell_size, cell_size), pygame.SRCALPHA)
                 placeholder.fill((0, 255, 0))
                 item_images.append(placeholder)
         else:
-            print(f"Warning: File {path} not found")
             placeholder = pygame.Surface(
                 (cell_size, cell_size), pygame.SRCALPHA)
             placeholder.fill((0, 255, 0))
             item_images.append(placeholder)
 
-    # Tải hình ảnh khiên
     shield_image_path = os.path.join(base_dir, "..", "images", "shield.png")
     if os.path.exists(shield_image_path):
         try:
             shield_image = pygame.image.load(shield_image_path)
             shield_image = pygame.transform.scale(
                 shield_image, (cell_size, cell_size))
-        except pygame.error as e:
-            print(f"Error loading {shield_image_path}: {e}")
+        except pygame.error:
             shield_image = pygame.Surface(
                 (cell_size, cell_size), pygame.SRCALPHA)
             shield_image.fill((0, 0, 255))
     else:
-        print(f"Warning: File {shield_image_path} not found")
         shield_image = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
         shield_image.fill((0, 0, 255))
 
-    # Thiết lập ánh sáng
     LIGHT_RADIUS = 150
     light_mask = pygame.Surface(
         (width_maze * cell_size, height_maze * cell_size), pygame.SRCALPHA)
     light_mask.fill((0, 0, 0, 150))
 
-    # Tải hình ảnh menu và scale để vừa chiều cao
     image_info_path = os.path.join(base_dir, "..", "images", "menu1.png")
     if os.path.exists(image_info_path):
         try:
             image_info = pygame.image.load(image_info_path)
             image_info = pygame.transform.scale(
                 image_info, (500, height_maze * cell_size))
-        except pygame.error as e:
-            print(f"Error loading {image_info_path}: {e}")
+        except pygame.error:
             image_info = pygame.Surface(
                 (500, height_maze * cell_size), pygame.SRCALPHA)
             image_info.fill((0, 0, 255))
     else:
-        print(f"Warning: File {image_info_path} not found")
         image_info = pygame.Surface(
             (500, height_maze * cell_size), pygame.SRCALPHA)
         image_info.fill((0, 0, 255))
 
-    # Hàm apply_action_maze để chuyển đổi hành động thành tọa độ mới
     def apply_action_maze(position, action):
         x, y = position
         if action == "UP":
@@ -236,9 +188,8 @@ def maingame(config, saved_state=None):
             return (x, y - 1)
         elif action == "RIGHT":
             return (x, y + 1)
-        return (x, y)  # Trả về vị trí hiện tại nếu hành động không hợp lệ
+        return (x, y)
 
-    # Class Button cho menu
     class Button:
         def __init__(self, text, x, y, w, h, callback):
             self.text = text
@@ -274,7 +225,6 @@ def maingame(config, saved_state=None):
                 self.clicked = False
             return None
 
-    # Class Player
     class Player:
         def __init__(self, x, y, frames):
             self.grid_x = x
@@ -292,8 +242,16 @@ def maingame(config, saved_state=None):
             self.direction = "down"
             self.has_shield = False
             self.score_notifications = []
+            self.move_lock = False
 
         def move_to(self, x, y):
+            if self.move_lock:
+                return
+            valid_moves = get_valid_moves(maze, (self.grid_x, self.grid_y))
+            if (x, y) not in valid_moves:
+                return
+
+            self.move_lock = True
             dx = x - self.grid_x
             dy = y - self.grid_y
             if dx == 1:
@@ -310,6 +268,8 @@ def maingame(config, saved_state=None):
             self.target_pixel = (x * cell_size, y * cell_size)
 
         def update(self, delta_time):
+            # Cap delta_time to prevent jumps
+            delta_time = min(delta_time, 0.05)
             if self.target_pixel:
                 dx = self.target_pixel[0] - self.pixel_x
                 dy = self.target_pixel[1] - self.pixel_y
@@ -320,8 +280,7 @@ def maingame(config, saved_state=None):
                     self.target_pixel = None
                     self.grid_x = int(self.pixel_x // cell_size)
                     self.grid_y = int(self.pixel_y // cell_size)
-                    print(
-                        f"Player updated to grid position: ({self.grid_x}, {self.grid_y})")
+                    self.move_lock = False
                 else:
                     move_dist = self.speed * delta_time
                     self.pixel_x += move_dist * dx / distance
@@ -359,7 +318,8 @@ def maingame(config, saved_state=None):
                 "items_collected": self.items_collected,
                 "direction": self.direction,
                 "has_shield": self.has_shield,
-                "score_notifications": self.score_notifications
+                "score_notifications": self.score_notifications,
+                "move_lock": self.move_lock
             }
 
         def load_state(self, state):
@@ -375,11 +335,10 @@ def maingame(config, saved_state=None):
                 self.direction = state["direction"]
                 self.has_shield = state["has_shield"]
                 self.score_notifications = state["score_notifications"]
+                self.move_lock = state.get("move_lock", False)
             except KeyError as e:
-                print(f"Error loading player state: Missing key {e}")
                 raise
 
-    # Class Mummy
     class Mummy:
         def __init__(self, x, y, frames):
             self.grid_x = x
@@ -393,13 +352,29 @@ def maingame(config, saved_state=None):
             self.speed = 80
             self.target_pixel = None
             self.move_cooldown = 0
+            self.path_cache = []
+            self.path_cache_timer = 0
 
         def move_to(self, x, y):
-            self.grid_x = x
-            self.grid_y = y
-            self.target_pixel = (x * cell_size, y * cell_size)
+            if (0 <= x < height_maze and 0 <= y < width_maze and maze[x, y] == 1):
+                self.grid_x = x
+                self.grid_y = y
+                self.target_pixel = (x * cell_size, y * cell_size)
+            else:
+                pass
+
+        def snap_to_position(self, x, y):
+            if (0 <= x < height_maze and 0 <= y < width_maze and maze[x, y] == 1):
+                self.grid_x = x
+                self.grid_y = y
+                self.pixel_x = x * cell_size
+                self.pixel_y = y * cell_size
+                self.target_pixel = None
+            else:
+                pass
 
         def update(self, delta_time):
+            delta_time = min(delta_time, 0.05)  # Cap delta_time
             if self.move_cooldown > 0:
                 self.move_cooldown -= delta_time
 
@@ -424,6 +399,10 @@ def maingame(config, saved_state=None):
                     self.current_frame = (
                         self.current_frame + 1) % len(self.frames)
 
+            self.path_cache_timer -= delta_time
+            if self.path_cache_timer <= 0:
+                self.path_cache = []
+
         def draw(self, screen, offset_x, offset_y):
             if mummy_active:
                 screen.blit(self.frames[self.current_frame],
@@ -438,7 +417,9 @@ def maingame(config, saved_state=None):
                 "current_frame": self.current_frame,
                 "animation_timer": self.animation_timer,
                 "target_pixel": self.target_pixel,
-                "move_cooldown": self.move_cooldown
+                "move_cooldown": self.move_cooldown,
+                "path_cache": self.path_cache,
+                "path_cache_timer": self.path_cache_timer
             }
 
         def load_state(self, state):
@@ -451,11 +432,11 @@ def maingame(config, saved_state=None):
                 self.animation_timer = state["animation_timer"]
                 self.target_pixel = state["target_pixel"]
                 self.move_cooldown = state["move_cooldown"]
+                self.path_cache = state.get("path_cache", [])
+                self.path_cache_timer = state.get("path_cache_timer", 0)
             except KeyError as e:
-                print(f"Error loading mummy state: Missing key {e}")
                 raise
 
-    # Hàm tạo mê cung
     def generate_maze(width, height, extra_paths=30):
         maze = np.zeros((height, width), dtype=int)
         start_x, start_y = random.randrange(
@@ -491,7 +472,6 @@ def maingame(config, saved_state=None):
 
         return maze
 
-    # Hàm đặt vật phẩm
     def place_items(maze, num_items=5):
         items = []
         available_positions = [(i, j) for i in range(maze.shape[0]) for j in range(maze.shape[1])
@@ -502,49 +482,56 @@ def maingame(config, saved_state=None):
             available_positions.remove(pos)
         return items
 
-    # Hàm đặt khiên
     def place_shield(maze):
         available_positions = [(i, j) for i in range(maze.shape[0]) for j in range(maze.shape[1])
                                if maze[i, j] == 1 and (i, j) != (1, 1) and (i, j) != (height_maze-2, width_maze-2)]
         valid_positions = [
             pos for pos in available_positions if get_valid_moves(maze, pos)]
         if not valid_positions:
-            print("Warning: No valid shield positions with valid moves")
             return []
         pos = random.choice(valid_positions)
         return [pos]
 
-    # Hàm đặt bẫy
     def place_trap(maze):
         available_positions = [(i, j) for i in range(maze.shape[0]) for j in range(maze.shape[1])
                                if maze[i, j] == 1 and (i, j) != (1, 1) and (i, j) != (height_maze-2, width_maze-2)]
         valid_positions = [
             pos for pos in available_positions if get_valid_moves(maze, pos)]
         if not valid_positions:
-            print("Warning: No valid trap positions with valid moves")
             return []
         pos = random.choice(valid_positions)
         return [pos]
 
-    # Hàm DFS đơn giản cho mummy
+    def find_nearest_valid_position(maze, target_pos):
+        x, y = target_pos
+        if 0 <= x < height_maze and 0 <= y < width_maze and maze[x, y] == 1:
+            return (x, y)
+        queue = [(x, y)]
+        visited = set([(x, y)])
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        while queue:
+            cx, cy = queue.pop(0)
+            for dx, dy in directions:
+                nx, ny = cx + dx, cy + dy
+                if (nx, ny) not in visited and 0 <= nx < height_maze and 0 <= ny < width_maze:
+                    if maze[nx, ny] == 1:
+                        return (nx, ny)
+                    queue.append((nx, ny))
+                    visited.add((nx, ny))
+        return (1, 1)  # Fallback
+
     def dfs_mummy(maze, start, goal):
-        stack = [(start, [start])]
-        visited = set()
+        valid_moves = get_valid_moves(maze, start)
+        if not valid_moves:
+            return [start]
+        best_move = min(
+            valid_moves,
+            key=lambda pos: heuristic(pos, goal),
+            default=start
+        )
+        return [best_move]
 
-        while stack:
-            (x, y), path = stack.pop()
-            if (x, y) == goal:
-                return path[1:] if len(path) > 1 else path
-
-            if (x, y) not in visited:
-                visited.add((x, y))
-                for next_pos in get_valid_moves(maze, (x, y)):
-                    if next_pos not in visited:
-                        stack.append((next_pos, path + [next_pos]))
-        return []
-
-    # Hàm điều khiển AI cho mummy
-    def mummy_ai(maze, mummy_pos, player_pos, algorithm):
+    def mummy_ai(maze, mummy_pos, player_pos, algorithm, mummy):
         if isinstance(mummy_pos, np.ndarray):
             mummy_pos = tuple(mummy_pos)
         elif not isinstance(mummy_pos, tuple):
@@ -554,7 +541,15 @@ def maingame(config, saved_state=None):
         elif not isinstance(player_pos, tuple):
             player_pos = tuple(player_pos)
 
+        valid_moves = get_valid_moves(maze, mummy_pos)
+        if mummy.path_cache:
+            if mummy.path_cache[0] in valid_moves:
+                return mummy.path_cache.pop(0)
+            else:
+                mummy.path_cache = []
+
         try:
+            start_time = time.time()
             if algorithm == "A*":
                 path = a_star(maze, mummy_pos, player_pos)
             elif algorithm == "DFS":
@@ -565,31 +560,21 @@ def maingame(config, saved_state=None):
                 path = find_path_backtracking(
                     maze, mummy_pos, player_pos, [], shields=[], traps=[])
             else:
-                print(f"Unknown mummy algorithm {algorithm}, defaulting to A*")
                 path = a_star(maze, mummy_pos, player_pos)
-            if not path:
-                print(
-                    f"No path found for mummy from {mummy_pos} to {player_pos} using {algorithm}")
-                valid_moves = get_valid_moves(maze, mummy_pos)
-                if not valid_moves:
-                    print(f"Mummy stuck at {mummy_pos}, no valid moves")
-                    return mummy_pos
-                return random.choice(valid_moves)
-            print(f"Mummy path from {mummy_pos} to {player_pos}: {path}")
+
+            elapsed = time.time() - start_time
+
+            if not path or not isinstance(path, list) or not path[0] in valid_moves:
+                return dfs_mummy(maze, mummy_pos, player_pos)[0]
+
+            mummy.path_cache = path[1:] if len(path) > 1 else []
+            mummy.path_cache_timer = 1.0  # Cache for 1 second
             return path[0]
         except Exception as e:
-            print(f"Error in mummy pathfinding with {algorithm}: {e}")
-            valid_moves = get_valid_moves(maze, mummy_pos)
-            if not valid_moves:
-                print(f"Mummy stuck at {mummy_pos}, no valid moves")
-                return mummy_pos
-            return random.choice(valid_moves)
+            return dfs_mummy(maze, mummy_pos, player_pos)[0]
 
-    # Vẽ mê cung
     def draw_maze(screen, maze, item_data, traps, shield, player, mummy, offset_x, offset_y):
-        print("Drawing maze...")
         if maze is None or item_data is None or player is None or mummy is None:
-            print("Error: Invalid game state for drawing maze")
             return
         wall_image_path = os.path.join(base_dir, "..", "images", "wall.png")
         if os.path.exists(wall_image_path):
@@ -597,12 +582,10 @@ def maingame(config, saved_state=None):
                 wall_image = pygame.image.load(wall_image_path)
                 wall_image = pygame.transform.scale(
                     wall_image, (cell_size, cell_size))
-            except pygame.error as e:
-                print(f"Error loading {wall_image_path}: {e}")
+            except pygame.error:
                 wall_image = pygame.Surface((cell_size, cell_size))
                 wall_image.fill((128, 128, 128))
         else:
-            print(f"Warning: File {wall_image_path} not found")
             wall_image = pygame.Surface((cell_size, cell_size))
             wall_image.fill((128, 128, 128))
 
@@ -625,12 +608,10 @@ def maingame(config, saved_state=None):
                 goal_img = pygame.image.load(goal_image_path)
                 goal_img = pygame.transform.scale(
                     goal_img, (cell_size, cell_size))
-            except pygame.error as e:
-                print(f"Error loading {goal_image_path}: {e}")
+            except pygame.error:
                 goal_img = pygame.Surface((cell_size, cell_size))
                 goal_img.fill((255, 255, 0))
         else:
-            print(f"Warning: File {goal_image_path} not found")
             goal_img = pygame.Surface((cell_size, cell_size))
             goal_img.fill((255, 255, 0))
         temp_surface.blit(goal_img, ((width_maze-2) *
@@ -642,12 +623,10 @@ def maingame(config, saved_state=None):
                 trap_image = pygame.image.load(trap_image_path)
                 trap_image = pygame.transform.scale(
                     trap_image, (cell_size, cell_size))
-            except pygame.error as e:
-                print(f"Error loading {trap_image_path}: {e}")
+            except pygame.error:
                 trap_image = pygame.Surface((cell_size, cell_size))
                 trap_image.fill((255, 0, 255))
         else:
-            print(f"Warning: File {trap_image_path} not found")
             trap_image = pygame.Surface((cell_size, cell_size))
             trap_image.fill((255, 0, 255))
 
@@ -666,11 +645,8 @@ def maingame(config, saved_state=None):
         pygame.draw.circle(mask, (0, 0, 0, 0), (int(player.pixel_y + offset_x +
                            cell_size//2), int(player.pixel_x + offset_y + cell_size//2)), LIGHT_RADIUS)
         screen.blit(mask, (offset_x, offset_y))
-        print("Maze drawn.")
 
-    # Vẽ thông tin màn hình
     def draw_screen_info(items_collected, start_ticks, shield_status, mode, human_algorithm, mummy_algorithm, difficulty, map_name, player, offset_x):
-        print("Drawing screen info...")
         screen.blit(image_info, (offset_x + 1050, offset_y))
         font = pygame.font.SysFont("consolas", 20, bold=True)
         seconds = (pygame.time.get_ticks() - start_ticks) // 1000
@@ -679,9 +655,13 @@ def maingame(config, saved_state=None):
 
         mode_text = font.render(f'Game mode: {mode}', True, (224, 205, 145))
         screen.blit(mode_text, (offset_x + 1150, offset_y + 150))
+
+        display_human_algorithm = "Player" if mode == "Player vs AI" else (
+            "No Observation" if human_algorithm == "BFS-NoObs" else human_algorithm)
         human_text = font.render(
-            f'Algorithm for human: {"Player" if mode == "Player vs AI" else human_algorithm}', True, (224, 205, 145))
+            f'Algorithm for human: {display_human_algorithm}', True, (224, 205, 145))
         screen.blit(human_text, (offset_x + 1150, offset_y + 200))
+
         mummy_text = font.render(
             f'Algorithm for mummy: {mummy_algorithm}', True, (224, 205, 145))
         screen.blit(mummy_text, (offset_x + 1150, offset_y + 250))
@@ -717,9 +697,7 @@ def maingame(config, saved_state=None):
             if y_offset + score_text.get_height() <= rect.height:
                 screen.blit(score_text, (rect.x + 5, rect.y + 5 + y_offset))
                 y_offset += 15
-        print("Screen info drawn.")
 
-    # Vẽ màn hình GAME OVER
     def draw_game_over_screen(screen):
         screen.fill((0, 0, 0))
         game_over_text = game_over_font.render(
@@ -737,7 +715,6 @@ def maingame(config, saved_state=None):
         no_button.draw(screen)
         return yes_button, no_button
 
-    # Vẽ thông báo nhặt trúng bẫy
     def draw_trap_notification(screen):
         if trap_notification_timer > 0:
             notification_text = notification_font.render(
@@ -745,9 +722,7 @@ def maingame(config, saved_state=None):
             screen.blit(notification_text, (width // 2 - notification_text.get_width() //
                         2, height // 2 - notification_text.get_height() // 2))
 
-    # Vẽ "YOU WIN" với hiệu ứng sao giữa màn hình
     def draw_win_text(screen):
-        print("Drawing YOU WIN text")
         win_surface = pygame.Surface((width, height), pygame.SRCALPHA)
         text = "YOU WIN!"
         center_x = width // 2
@@ -768,9 +743,7 @@ def maingame(config, saved_state=None):
             pygame.draw.circle(win_surface, (255, 215, 0),
                                (int(star_x), int(star_y)), star_size // 2)
         screen.blit(win_surface, (0, 0))
-        print("YOU WIN text drawn")
 
-    # Hàm điều khiển nhạc
     def turn_on_music():
         nonlocal music_on
         if not music_on and os.path.exists(music_path):
@@ -778,8 +751,8 @@ def maingame(config, saved_state=None):
                 pygame.mixer.music.load(music_path)
                 pygame.mixer.music.play(-1)
                 music_on = True
-            except pygame.error as e:
-                print(f"Error turning on music: {e}")
+            except pygame.error:
+                pass
 
     def turn_off_music():
         nonlocal music_on
@@ -787,10 +760,9 @@ def maingame(config, saved_state=None):
             try:
                 pygame.mixer.music.stop()
                 music_on = False
-            except pygame.error as e:
-                print(f"Error turning off music: {e}")
+            except pygame.error:
+                pass
 
-    # Hàm xử lý menu
     def toggle_menu():
         nonlocal show_menu
         show_menu = not show_menu
@@ -800,11 +772,8 @@ def maingame(config, saved_state=None):
         running = False
         try:
             state = save_game_state()
-            print("Returning to menu with saved state:", {
-                  k: type(v).__name__ for k, v in state.items()})
             return ("menu", state)
-        except Exception as e:
-            print(f"Error in back_to_menu: {e}")
+        except Exception:
             return ("menu", {})
 
     def pause_game():
@@ -815,29 +784,26 @@ def maingame(config, saved_state=None):
         nonlocal paused
         paused = False
 
-    # Hàm khởi động lại game trên cùng map
     def restart_game():
-        nonlocal player, mummy, item_data, trap, shield, path, current_step, mummy_active, mummy_timer, start_ticks, paused, show_menu, game_won, game_over, win_timer, trap_notification_timer
-        print("Restarting game on the same map...")
+        nonlocal players, player, mummy, item_data, trap, shield, path, current_step, mummy_active, mummy_timer, start_ticks, paused, show_menu, game_won, game_over, win_timer, trap_notification_timer, trap_just_activated
 
-        # Đặt lại trạng thái người chơi
-        player_start = (1, 1)
-        player = Player(player_start[0], player_start[1], running_frames)
-        player.items_collected = 0
-        player.has_shield = False
-        player.score_notifications = []
+        player_starts = [(1, 1), (1, width_maze - 2), (height_maze - 2, 1)]
+        players = [Player(x, y, running_frames) for x, y in player_starts]
+        player = players[0]
+        for p in players:
+            p.items_collected = 0
+            p.has_shield = False
+            p.score_notifications = []
 
-        # Đặt lại trạng thái mummy
         mummy = Mummy(goal[0], goal[1], mummy_frames)
 
-        # Đặt lại vật phẩm, bẫy, khiên
         item_positions = place_items(maze, num_items=5)
         item_data = list(zip(item_positions, random.sample(
             item_images, len(item_positions))))
+
         trap = place_trap(maze)
         shield = place_shield(maze)
 
-        # Đặt lại đường đi cho AI nếu ở chế độ AI vs AI
         path = []
         current_step = 0
         if mode == "AI vs AI":
@@ -845,87 +811,46 @@ def maingame(config, saved_state=None):
             try:
                 if algorithm == "A*":
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
-                    print(f"A* path: {path}")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "DFS":
                     path = find_path_dfs(
-                        maze, player_start, goal, item_positions)
-                    print(f"DFS path: {path}")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "SA":
-                    path = find_path_sa(maze, player_start,
-                                        goal, item_positions)
-                    print(f"SA path: {path}")
+                    path = find_path_sa(maze, (player.grid_x, player.grid_y),
+                                        goal, [pos for pos, _ in item_data])
                 elif algorithm == "Q-Learning":
-                    print("Computing Q-Learning path...")
                     path = find_path_qlearning(
-                        maze, player_start, goal, item_positions)
-                    print("Q-Learning path computed:",
-                          path if path else "None")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                     if not path:
-                        print("Q-Learning failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "Backtracking":
-                    print("Computing Backtracking path...")
-                    print(
-                        f"Input for Backtracking: start={player_start}, goal={goal}, items={item_positions}, shields={shield}, traps={trap}")
                     path = find_path_backtracking(
-                        maze, player_start, goal, item_positions, shields=shield, traps=trap)
-                    print("Backtracking path computed:",
-                          path if path else "None")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data], shields=shield, traps=trap)
                     if not path:
-                        print("Backtracking failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "BFS-NoObs":
-                    print("Computing BFS-NoObs path...")
-
-                    class TempPlayer:
-                        def __init__(self, x, y):
-                            self.grid_x = x
-                            self.grid_y = y
-                    temp_player = TempPlayer(player_start[0], player_start[1])
                     path = search_no_observation_bfs_maze(
-                        maze, [temp_player], goal)
-                    current_pos = (temp_player.grid_x, temp_player.grid_y)
-                    path_coords = []
-                    for action in path:
-                        next_pos = apply_action_maze(current_pos, action)
-                        if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and maze[next_pos[0], next_pos[1]] == 1):
-                            path_coords.append(next_pos)
-                            current_pos = next_pos
-                        else:
-                            print(
-                                f"Invalid action {action} at {current_pos}, stopping path conversion")
-                            break
-                    path = path_coords
-                    print("BFS-NoObs path computed:", path if path else "None")
+                        maze, players, goal)
+                    player = random.choice(players)
                     if not path:
-                        print("BFS-NoObs failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 else:
-                    print(f"Unknown algorithm {algorithm}, defaulting to A*")
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 if path and path[-1] != goal:
-                    print(
-                        f"Warning: Path does not end at goal {goal}, last position: {path[-1]}")
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
-                    print(f"Fallback to A* path: {path}")
-            except Exception as e:
-                print(f"Error in pathfinding with {algorithm}: {e}")
-                print("Falling back to A*")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+            except Exception:
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
 
             if path is None or not path:
-                print("No valid path found, using A* as final fallback")
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
 
-        # Đặt lại các biến trạng thái
         mummy_active = False
         mummy_timer = 0
         start_ticks = pygame.time.get_ticks()
@@ -935,18 +860,19 @@ def maingame(config, saved_state=None):
         game_over = False
         win_timer = 0
         trap_notification_timer = 0
+        trap_just_activated = False
 
-        print("Game restarted with same map.")
         return None
 
-    # Hàm lưu trạng thái game
     def save_game_state():
-        item_positions = [(x, y) for (x, y), _ in item_data]
+        item_data_state = [(pos, item_images.index(
+            img) if img in item_images else 0) for pos, img in item_data]
         state = {
             "maze": maze.copy() if maze is not None else generate_maze(width_maze, height_maze, extra_paths=30),
-            "player": player.save_state() if player is not None else Player(1, 1, running_frames).save_state(),
+            "players": [p.save_state() for p in players] if players else [Player(1, 1, running_frames).save_state()],
+            "selected_player_index": players.index(player) if players and player in players else 0,
             "mummy": mummy.save_state() if mummy is not None else Mummy(goal[0], goal[1], mummy_frames).save_state(),
-            "item_positions": item_positions,
+            "item_data": item_data_state,
             "trap": trap.copy() if trap is not None else [],
             "shield": shield.copy() if shield is not None else [],
             "path": path[current_step:] if mode == "AI vs AI" and path is not None else [],
@@ -961,201 +887,260 @@ def maingame(config, saved_state=None):
             "width_maze": width_maze,
             "height_maze": height_maze,
             "cell_size": cell_size,
-            "config": config if config is not None else {"mode": "AI vs AI", "difficulty": "Easy", "map": "New Map", "mummy_algorithm": "A*"},
+            "config": {
+                "mode": mode,
+                "difficulty": difficulty,
+                "map": map_name,
+                "human_algorithm": human_algorithm,
+                "mummy_algorithm": mummy_algorithm,
+                "old_map": old_map.copy() if old_map is not None else None
+            },
             "game_won": game_won,
             "game_over": game_over,
             "win_timer": win_timer,
-            "trap_notification_timer": trap_notification_timer
+            "trap_notification_timer": trap_notification_timer,
+            "trap_just_activated": trap_just_activated
         }
-        missing_keys = [k for k in state if state[k] is None]
-        if missing_keys:
-            print(
-                f"Warning: Missing or None values in saved state: {missing_keys}")
         return state
 
-    # Khởi tạo các biến trạng thái game
     game_won = False
     game_over = False
     win_timer = 0
     trap_notification_timer = 0
+    trap_just_activated = False
+    trap_activation_delay = 0.5
 
-    # Danh sách các khóa bắt buộc trong saved_state
     required_state_keys = [
-        "maze", "player", "mummy", "item_positions", "trap", "shield",
+        "maze", "players", "selected_player_index", "mummy", "item_data", "trap", "shield",
         "path", "current_step", "mummy_timer", "mummy_active", "start_ticks",
         "paused", "show_menu", "music_on", "goal", "width_maze", "height_maze",
         "cell_size", "config", "game_won", "game_over", "win_timer",
-        "trap_notification_timer"
+        "trap_notification_timer", "trap_just_activated"
     ]
 
-    # Khởi tạo game
-    if saved_state:
-        print("Loading saved state...")
+    if saved_state and all(key in saved_state for key in required_state_keys):
         try:
-            missing_keys = [
-                key for key in required_state_keys if key not in saved_state]
-            if missing_keys:
-                raise KeyError(f"Missing keys in saved_state: {missing_keys}")
-
-            maze = saved_state["maze"]
-            if not isinstance(maze, np.ndarray):
-                raise ValueError(
-                    "Invalid maze in saved state: not a numpy array")
-            width_maze = saved_state["width_maze"]
-            height_maze = saved_state["height_maze"]
-            cell_size = saved_state["cell_size"]
-            player = Player(1, 1, running_frames)
-            player.load_state(saved_state["player"])
-            goal = saved_state["goal"]
-            if not isinstance(goal, tuple) or len(goal) != 2:
-                raise ValueError("Invalid goal in saved_state")
+            maze = generate_maze(width_maze, height_maze, extra_paths=30)
+            goal = (height_maze - 2, width_maze - 2)
+            players = [Player(1, 1, running_frames)]
+            player = players[0]
             mummy = Mummy(goal[0], goal[1], mummy_frames)
-            mummy.load_state(saved_state["mummy"])
-            item_positions = saved_state["item_positions"]
-            if not all(isinstance(pos, tuple) and len(pos) == 2 for pos in item_positions):
-                raise ValueError("Invalid item_positions in saved_state")
+            item_positions = place_items(maze, num_items=5)
             item_data = list(zip(item_positions, random.sample(
                 item_images, len(item_positions))))
-            trap = saved_state["trap"]
-            shield = saved_state["shield"]
-            path = saved_state["path"]
-            current_step = saved_state["current_step"]
-            mummy_timer = saved_state["mummy_timer"]
-            mummy_active = saved_state["mummy_active"]
-            start_ticks = saved_state["start_ticks"]
-            paused = saved_state["paused"]
-            show_menu = saved_state["show_menu"]
-            music_on = saved_state["music_on"]
-            game_won = saved_state["game_won"]
-            game_over = saved_state["game_over"]
-            win_timer = saved_state["win_timer"]
-            trap_notification_timer = saved_state["trap_notification_timer"]
-            print(
-                f"Loaded saved state: player at ({player.grid_x}, {player.grid_y}), mummy at ({mummy.grid_x}, {mummy.grid_y}), items: {len(item_positions)}, trap_notification_timer: {trap_notification_timer}")
-        except (KeyError, ValueError) as e:
-            print(f"Error loading saved state: {e}. Starting new game...")
+            trap = place_trap(maze)
+            shield = place_shield(maze)
+            path = []
+            current_step = 0
+            mummy_timer = 0
+            mummy_active = False
+            start_ticks = pygame.time.get_ticks()
+            paused = False
+            show_menu = False
+            music_on = True
+            win_timer = 0
+            trap_notification_timer = 0
+            trap_just_activated = False
+
+            if isinstance(saved_state["maze"], np.ndarray) and saved_state["maze"].shape == (height_maze, width_maze):
+                maze = saved_state["maze"].copy()
+            if isinstance(saved_state["goal"], tuple) and len(saved_state["goal"]) == 2:
+                goal = saved_state["goal"]
+            if "width_maze" in saved_state:
+                width_maze = saved_state["width_maze"]
+            if "height_maze" in saved_state:
+                height_maze = saved_state["height_maze"]
+            if "cell_size" in saved_state:
+                cell_size = saved_state["cell_size"]
+
+            if "players" in saved_state and "selected_player_index" in saved_state:
+                players = [Player(1, 1, running_frames)
+                           for _ in saved_state["players"]]
+                for i, p_state in enumerate(saved_state["players"]):
+                    try:
+                        players[i].load_state(p_state)
+                    except KeyError:
+                        continue
+                selected_player_index = saved_state["selected_player_index"]
+                player = players[selected_player_index] if 0 <= selected_player_index < len(
+                    players) else players[0]
+            else:
+                players = [Player(1, 1, running_frames)]
+                player = players[0]
+
+            if "mummy" in saved_state:
+                mummy = Mummy(goal[0], goal[1], mummy_frames)
+                try:
+                    mummy.load_state(saved_state["mummy"])
+                except KeyError:
+                    pass
+
+            if "item_data" in saved_state:
+                item_data_state = saved_state["item_data"]
+                item_data = []
+                for pos, img_index in item_data_state:
+                    if isinstance(pos, tuple) and len(pos) == 2:
+                        if 0 <= img_index < len(item_images):
+                            item_data.append((pos, item_images[img_index]))
+                        else:
+                            item_data.append((pos, random.choice(item_images)))
+                    else:
+                        item_positions = place_items(maze, num_items=5)
+                        item_data = list(zip(item_positions, random.sample(
+                            item_images, len(item_positions))))
+                        break
+            else:
+                item_positions = place_items(maze, num_items=5)
+                item_data = list(zip(item_positions, random.sample(
+                    item_images, len(item_positions))))
+
+            trap = saved_state.get("trap", place_trap(maze))
+            shield = saved_state.get("shield", place_shield(maze))
+            mummy_timer = saved_state.get("mummy_timer", 0)
+            mummy_active = saved_state.get("mummy_active", False)
+            start_ticks = saved_state.get(
+                "start_ticks", pygame.time.get_ticks())
+            paused = saved_state.get("paused", False)
+            show_menu = saved_state.get("show_menu", False)
+            music_on = saved_state.get("music_on", True)
+            game_won = saved_state.get("game_won", False)
+            game_over = saved_state.get("game_over", False)
+            win_timer = saved_state.get("win_timer", 0)
+            trap_notification_timer = saved_state.get(
+                "trap_notification_timer", 0)
+            trap_just_activated = saved_state.get("trap_just_activated", False)
+
+            path = saved_state.get("path", [])
+            current_step = saved_state.get("current_step", 0)
+            if mode == "AI vs AI":
+                if path and current_step < len(path):
+                    next_pos = path[current_step]
+                    valid_moves = get_valid_moves(
+                        maze, (player.grid_x, player.grid_y))
+                    if next_pos not in valid_moves:
+                        path = []
+                        current_step = 0
+                else:
+                    path = []
+                    current_step = 0
+
+                if not path:
+                    algorithm = human_algorithm
+                    try:
+                        if algorithm == "A*":
+                            path = find_path_astar(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        elif algorithm == "DFS":
+                            path = find_path_dfs(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        elif algorithm == "SA":
+                            path = find_path_sa(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        elif algorithm == "Q-Learning":
+                            path = find_path_qlearning(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            if not path:
+                                path = find_path_astar(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        elif algorithm == "Backtracking":
+                            path = find_path_backtracking(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data], shields=shield, traps=trap)
+                            if not path:
+                                path = find_path_astar(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        elif algorithm == "BFS-NoObs":
+                            path = search_no_observation_bfs_maze(
+                                maze, players, goal)
+                            player = random.choice(players)
+                            if not path:
+                                path = find_path_astar(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        else:
+                            path = find_path_astar(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                        if path and path[-1] != goal:
+                            path = find_path_astar(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                    except Exception:
+                        path = find_path_astar(
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                    current_step = 0
+
+        except Exception as e:
             saved_state = None
+    else:
+        saved_state = None
 
     if not saved_state:
-        print("Initializing new game...")
-        # Ưu tiên sử dụng Old Map nếu được chọn
-        if map_name == "Old Map" and old_map is not None:
-            if isinstance(old_map, np.ndarray):
-                if old_map.shape == (height_maze, width_maze):
-                    print("Using Old Map from config with matching size")
-                    maze = old_map.copy()
-                else:
-                    print(
-                        f"Warning: Old Map size {old_map.shape} does not match expected {height_maze}x{width_maze}. Resizing or generating new map...")
-                    # Thử điều chỉnh kích thước hoặc tạo map mới nếu không khớp
-                    maze = generate_maze(
-                        width_maze, height_maze, extra_paths=30)
-            else:
-                print(
-                    f"Warning: old_map is not a numpy array, got {type(old_map)}. Generating new maze...")
-                maze = generate_maze(width_maze, height_maze, extra_paths=30)
+        if map_name == "Old Map" and old_map is not None and isinstance(old_map, np.ndarray) and old_map.shape == (height_maze, width_maze):
+            maze = old_map.copy()
         else:
-            print("No Old Map specified or New Map selected. Generating new maze...")
             maze = generate_maze(width_maze, height_maze, extra_paths=30)
-        print("Maze initialized:\n", maze)
-    else:
-        # Khi có saved_state, sử dụng maze từ saved_state
-        maze = saved_state["maze"]
-        print("Using maze from saved state:\n", maze)
 
-    print("Maze generated:\n", maze)
-    player_start = (1, 1)
-    player = Player(player_start[0], player_start[1], running_frames)
-    goal = (height_maze - 2, width_maze - 2)
-    mummy = Mummy(goal[0], goal[1], mummy_frames)
+        player_starts = [(1, 1), (1, width_maze - 2), (height_maze - 2, 1)]
+        players = [Player(x, y, running_frames) for x, y in player_starts]
+        player = players[0]
+        goal = (height_maze - 2, width_maze - 2)
+        mummy = Mummy(goal[0], goal[1], mummy_frames)
 
-    item_positions = place_items(maze, num_items=5)
-    item_data = list(zip(item_positions, random.sample(
-        item_images, len(item_positions))))
-    trap = place_trap(maze)
-    shield = place_shield(maze)
+        item_positions = place_items(maze, num_items=5)
+        item_data = list(zip(item_positions, random.sample(
+            item_images, len(item_positions))))
+        trap = place_trap(maze)
+        shield = place_shield(maze)
 
-    path = []
-    current_step = 0
-    if mode == "AI vs AI":
+        path = []
+        current_step = 0
+        mummy_active = False
+        mummy_timer = 0
+        start_ticks = pygame.time.get_ticks()
+        paused = False
+        show_menu = False
+        trap_notification_timer = 0
+        trap_just_activated = False
+
+    if mode == "AI vs AI" and not saved_state:
         algorithm = human_algorithm
         try:
             if algorithm == "A*":
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
-                print(f"A* path: {path}")
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             elif algorithm == "DFS":
-                path = find_path_dfs(maze, player_start, goal, item_positions)
-                print(f"DFS path: {path}")
+                path = find_path_dfs(
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             elif algorithm == "SA":
-                path = find_path_sa(maze, player_start, goal, item_positions)
-                print(f"SA path: {path}")
+                path = find_path_sa(
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             elif algorithm == "Q-Learning":
-                print("Computing Q-Learning path...")
                 path = find_path_qlearning(
-                    maze, player_start, goal, item_positions)
-                print("Q-Learning path computed:", path if path else "None")
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 if not path:
-                    print("Q-Learning failed, falling back to A*")
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             elif algorithm == "Backtracking":
-                print("Computing Backtracking path...")
-                print(
-                    f"Input for Backtracking: start={player_start}, goal={goal}, items={item_positions}, shields={shield}, traps={trap}")
                 path = find_path_backtracking(
-                    maze, player_start, goal, item_positions, shields=shield, traps=trap)
-                print("Backtracking path computed:", path if path else "None")
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data], shields=shield, traps=trap)
                 if not path:
-                    print("Backtracking failed, falling back to A*")
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             elif algorithm == "BFS-NoObs":
-                print("Computing BFS-NoObs path...")
-
-                class TempPlayer:
-                    def __init__(self, x, y):
-                        self.grid_x = x
-                        self.grid_y = y
-                temp_player = TempPlayer(player_start[0], player_start[1])
-                path = search_no_observation_bfs_maze(
-                    maze, [temp_player], goal)
-                current_pos = (temp_player.grid_x, temp_player.grid_y)
-                path_coords = []
-                for action in path:
-                    next_pos = apply_action_maze(current_pos, action)
-                    if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and maze[next_pos[0], next_pos[1]] == 1):
-                        path_coords.append(next_pos)
-                        current_pos = next_pos
-                    else:
-                        print(
-                            f"Invalid action {action} at {current_pos}, stopping path conversion")
-                        break
-                path = path_coords
-                print("BFS-NoObs path computed:", path if path else "None")
+                path = search_no_observation_bfs_maze(maze, players, goal)
+                player = random.choice(players)
                 if not path:
-                    print("BFS-NoObs failed, falling back to A*")
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             else:
-                print(f"Unknown algorithm {algorithm}, defaulting to A*")
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
             if path and path[-1] != goal:
-                print(
-                    f"Warning: Path does not end at goal {goal}, last position: {path[-1]}")
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
-                print(f"Fallback to A* path: {path}")
-        except Exception as e:
-            print(f"Error in pathfinding with {algorithm}: {e}")
-            print("Falling back to A*")
-            path = find_path_astar(maze, player_start, goal, item_positions)
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+        except Exception:
+            path = find_path_astar(
+                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
 
         if path is None or not path:
-            print("No valid path found, generating new maze")
             if map_name == "Old Map" and old_map is not None and isinstance(old_map, np.ndarray) and old_map.shape == (height_maze, width_maze):
-                print("Reusing Old Map from config despite path failure")
                 maze = old_map.copy()
             else:
                 maze = generate_maze(width_maze, height_maze, extra_paths=30)
@@ -1167,84 +1152,41 @@ def maingame(config, saved_state=None):
             try:
                 if algorithm == "A*":
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
-                    print(f"Retry A* path: {path}")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "DFS":
                     path = find_path_dfs(
-                        maze, player_start, goal, item_positions)
-                    print(f"Retry DFS path: {path}")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "SA":
-                    path = find_path_sa(maze, player_start,
-                                        goal, item_positions)
-                    print(f"Retry SA path: {path}")
+                    path = find_path_sa(maze, (player.grid_x, player.grid_y),
+                                        goal, [pos for pos, _ in item_data])
                 elif algorithm == "Q-Learning":
-                    print("Retrying Q-Learning path...")
                     path = find_path_qlearning(
-                        maze, player_start, goal, item_positions)
-                    print("Q-Learning retry path:", path if path else "None")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                     if not path:
-                        print("Q-Learning retry failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "Backtracking":
-                    print("Retrying Backtracking path...")
-                    print(
-                        f"Retry input for Backtracking: start={player_start}, goal={goal}, items={item_positions}, shields={shield}, traps={trap}")
                     path = find_path_backtracking(
-                        maze, player_start, goal, item_positions, shields=shield, traps=trap)
-                    print("Backtracking retry path:", path if path else "None")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data], shields=shield, traps=trap)
                     if not path:
-                        print("Backtracking retry failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 elif algorithm == "BFS-NoObs":
-                    print("Retrying BFS-NoObs path...")
-
-                    class TempPlayer:
-                        def __init__(self, x, y):
-                            self.grid_x = x
-                            self.grid_y = y
-                    temp_player = TempPlayer(player_start[0], player_start[1])
-                    path = search_no_observation_bfs_maze(
-                        maze, [temp_player], goal)
-                    current_pos = (temp_player.grid_x, temp_player.grid_y)
-                    path_coords = []
-                    for action in path:
-                        next_pos = apply_action_maze(current_pos, action)
-                        if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and maze[next_pos[0], next_pos[1]] == 1):
-                            path_coords.append(next_pos)
-                            current_pos = next_pos
-                        else:
-                            print(
-                                f"Invalid action {action} at {current_pos}, stopping path conversion")
-                            break
-                    path = path_coords
-                    print("BFS-NoObs retry path:", path if path else "None")
+                    path = search_no_observation_bfs_maze(maze, players, goal)
+                    player = random.choice(players)
                     if not path:
-                        print("BFS-NoObs retry failed, falling back to A*")
                         path = find_path_astar(
-                            maze, player_start, goal, item_positions)
+                            maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
                 else:
                     path = find_path_astar(
-                        maze, player_start, goal, item_positions)
-            except Exception as e:
-                print(f"Error in retry pathfinding with {algorithm}: {e}")
-                print("Falling back to A*")
+                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+            except Exception:
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
 
             if path is None or not path:
-                print("Retry failed, using A* as final fallback")
                 path = find_path_astar(
-                    maze, player_start, goal, item_positions)
-
-    print("Player path:", path)
-    mummy_active = False
-    mummy_timer = 0
-    start_ticks = pygame.time.get_ticks()
-    paused = False
-    show_menu = False
-    trap_notification_timer = 0
+                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
 
     maze_width = width_maze * cell_size
     maze_height = height_maze * cell_size
@@ -1258,18 +1200,14 @@ def maingame(config, saved_state=None):
     menu_button = pygame.Rect(width - 100 + offset_x, height - 90, 60, 45)
 
     menu_rect_x = (width - 250) // 2
-    menu_rect_y = (height - 320) // 2
+    menu_rect_y = (height - 280) // 2
     menu_buttons = [
         Button("Turn On Music", menu_rect_x + 25,
                menu_rect_y + 20, 200, 40, turn_on_music),
         Button("Turn Off Music", menu_rect_x + 25,
                menu_rect_y + 80, 200, 40, turn_off_music),
         Button("Back to Menu", menu_rect_x + 25,
-               menu_rect_y + 140, 200, 40, back_to_menu),
-        Button("Pause", menu_rect_x + 25,
-               menu_rect_y + 200, 200, 40, pause_game),
-        Button("Resume", menu_rect_x + 25,
-               menu_rect_y + 260, 200, 40, resume_game)
+               menu_rect_y + 140, 200, 40, back_to_menu)
     ]
 
     return_value = None
@@ -1292,12 +1230,10 @@ def maingame(config, saved_state=None):
                     yes_button, no_button = draw_game_over_screen(screen)
                     result = None
                     if yes_button.rect.collidepoint(event.pos):
-                        print("Restarting game with same map...")
                         if click_sound:
                             click_sound.play()
                         result = yes_button.handle_event(event)
                     elif no_button.rect.collidepoint(event.pos):
-                        print("Returning to menu...")
                         if click_sound:
                             click_sound.play()
                         result = no_button.handle_event(event)
@@ -1315,22 +1251,59 @@ def maingame(config, saved_state=None):
                 elif event.key in (pygame.K_d, pygame.K_RIGHT):
                     next_pos = (player.grid_x, player.grid_y + 1)
 
-                if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and maze[next_pos[0], next_pos[1]] == 1 and player.target_pixel is None):
+                valid_moves = get_valid_moves(
+                    maze, (player.grid_x, player.grid_y))
+                if next_pos in valid_moves and not player.move_lock:
                     player.move_to(next_pos[0], next_pos[1])
-                    print(f"Player moved to {next_pos}")
 
         if not paused and not show_menu and not game_won and not game_over:
             if mode == "AI vs AI":
-                if current_step < len(path) and player.target_pixel is None:
+                if path and current_step < len(path) and player.target_pixel is None:
                     next_pos = path[current_step]
-                    if heuristic((player.grid_x, player.grid_y), goal) < 3:
-                        print(
-                            f"Player near goal at step {current_step}: {next_pos}, goal: {goal}")
-                    player.move_to(next_pos[0], next_pos[1])
-                    current_step += 1
-                else:
-                    print(
-                        f"Player cannot move: current_step={current_step}, len(path)={len(path)}, target_pixel={player.target_pixel}")
+                    valid_moves = get_valid_moves(
+                        maze, (player.grid_x, player.grid_y))
+                    if next_pos in valid_moves:
+                        player.move_to(next_pos[0], next_pos[1])
+                        current_step += 1
+                    else:
+                        algorithm = human_algorithm
+                        try:
+                            if algorithm == "A*":
+                                path = find_path_astar(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            elif algorithm == "DFS":
+                                path = find_path_dfs(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            elif algorithm == "SA":
+                                path = find_path_sa(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            elif algorithm == "Q-Learning":
+                                path = find_path_qlearning(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                                if not path:
+                                    path = find_path_astar(
+                                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            elif algorithm == "Backtracking":
+                                path = find_path_backtracking(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data], shields=shield, traps=trap)
+                                if not path:
+                                    path = find_path_astar(
+                                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            elif algorithm == "BFS-NoObs":
+                                path = search_no_observation_bfs_maze(
+                                    maze, players, goal)
+                                player = random.choice(players)
+                                if not path:
+                                    path = find_path_astar(
+                                        maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            else:
+                                path = find_path_astar(
+                                    maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            current_step = 0
+                        except Exception:
+                            path = find_path_astar(
+                                maze, (player.grid_x, player.grid_y), goal, [pos for pos, _ in item_data])
+                            current_step = 0
 
             for i, ((item_x, item_y), _) in enumerate(item_data[:]):
                 if (player.grid_x, player.grid_y) == (item_x, item_y):
@@ -1342,85 +1315,68 @@ def maingame(config, saved_state=None):
                     item_data.pop(i)
                     if click_sound:
                         click_sound.play()
-                    print(
-                        f"Item collected at {player.grid_x, player.grid_y}, total: {player.items_collected}/5")
 
             if (player.grid_x, player.grid_y) in shield:
                 shield = []
                 player.has_shield = True
-                print(
-                    f"Shield collected at ({player.grid_x}, {player.grid_y}), shield active")
 
             if (player.grid_x, player.grid_y) in trap:
-                print("Trap detected!")
                 trap.remove((player.grid_x, player.grid_y))
                 if player.has_shield:
-                    print("Shield consumed")
                     player.has_shield = False
-                    print(
-                        f"Trap triggered at ({player.grid_x}, {player.grid_y}), shield lost!")
                 else:
-                    print("Activating mummy")
                     mummy_active = True
                     mummy_timer = 0
                     mummy.move_cooldown = 0
-                    mummy.move_to(goal[0], goal[1])
+                    valid_goal = find_nearest_valid_position(maze, goal)
+                    mummy.snap_to_position(valid_goal[0], valid_goal[1])
+                    mummy.path_cache = []
                     trap_notification_timer = 3
-                    print(
-                        f"Trap triggered at ({player.grid_x}, {player.grid_y}), mummy activated from {goal}, mummy_active={mummy_active}")
+                    trap_just_activated = True
 
             player.update(delta_time)
 
-            print(
-                f"Player position: ({player.grid_x}, {player.grid_y}), Goal: {goal}, Items: {player.items_collected}, Target pixel: {player.target_pixel}, Mode: {mode}")
             if mode == "Player vs AI" and (player.grid_x, player.grid_y) == goal:
                 game_won = True
                 win_timer = 5.0
-                print(f"Game won! Player at goal {goal} in {mode} mode")
             elif mode == "AI vs AI" and (player.grid_x, player.grid_y) == goal and player.items_collected >= 5:
                 game_won = True
                 win_timer = 5.0
-                print(
-                    f"Game won! Player at goal {goal} with {player.items_collected} items in {mode} mode")
-            elif (player.grid_x, player.grid_y) == goal:
-                print(
-                    f"Player at goal {goal} but items collected: {player.items_collected}/5 in {mode} mode")
 
             mummy_timer += delta_time
-            if mummy_active and not player.has_shield:
-                print(
-                    f"Mummy active, timer={mummy_timer:.2f}, target_pixel={mummy.target_pixel}, position=({mummy.grid_x}, {mummy.grid_y}), cooldown={mummy.move_cooldown:.2f}")
+            if mummy_active and not player.has_shield and trap_just_activated:
+                trap_activation_delay -= delta_time
+                if trap_activation_delay <= 0:
+                    trap_just_activated = False
+                    trap_activation_delay = 0.5
+            elif mummy_active and not player.has_shield:
                 if mummy_timer >= mummy_move_delay and mummy.move_cooldown <= 0 and mummy.target_pixel is None:
                     next_pos = mummy_ai(
-                        maze, (mummy.grid_x, mummy.grid_y), (player.grid_x, player.grid_y), mummy_algorithm)
-                    if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and maze[next_pos[0], next_pos[1]] == 1):
+                        maze, (mummy.grid_x, mummy.grid_y), (player.grid_x, player.grid_y), mummy_algorithm, mummy)
+                    if isinstance(next_pos, list) and next_pos:
+                        next_pos = next_pos[0]
+                    valid_moves = get_valid_moves(
+                        maze, (mummy.grid_x, mummy.grid_y))
+                    if (0 <= next_pos[0] < maze.shape[0] and 0 <= next_pos[1] < maze.shape[1] and next_pos in valid_moves):
                         mummy.move_to(next_pos[0], next_pos[1])
                         mummy.move_cooldown = mummy_move_delay
-                        print(
-                            f"Mummy moved to {next_pos} using {mummy_algorithm}")
                     else:
-                        print(
-                            f"Invalid mummy move to {next_pos}, staying at ({mummy.grid_x}, {mummy.grid_y})")
+                        pass
 
             mummy.update(delta_time)
 
             if mummy_active and not player.has_shield:
                 if (player.grid_x, player.grid_y) == (mummy.grid_x, mummy.grid_y):
                     game_over = True
-                    print(
-                        f"Collision detected at ({player.grid_x}, {player.grid_y}), game over!")
 
         if trap_notification_timer > 0:
             trap_notification_timer -= delta_time
-            print(f"Trap notification timer: {trap_notification_timer:.2f}")
 
         if game_won and win_timer > 0:
             win_timer -= delta_time
-            print(f"Win timer: {win_timer:.2f}")
             if win_timer <= 0:
                 running = False
                 return_value = ("menu", {})
-                print("Win timer expired, returning to menu")
 
         screen.fill((0, 0, 0))
         if game_over:
@@ -1444,7 +1400,7 @@ def maingame(config, saved_state=None):
             draw_trap_notification(screen)
 
         if show_menu:
-            menu_rect = pygame.Rect(menu_rect_x, menu_rect_y, 250, 320)
+            menu_rect = pygame.Rect(menu_rect_x, menu_rect_y, 250, 200)
             pygame.draw.rect(screen, (50, 40, 20), menu_rect, border_radius=10)
             pygame.draw.rect(screen, (255, 255, 255),
                              menu_rect, 2, border_radius=10)
@@ -1467,8 +1423,7 @@ def maingame(config, saved_state=None):
 
     try:
         pygame.mixer.music.stop()
-    except pygame.error as e:
-        print(f"Error stopping game music: {e}")
+    except pygame.error:
+        pass
     pygame.quit()
-    print("Game loop ended, return_value:", return_value)
     return return_value
