@@ -7,12 +7,10 @@ from collections import deque
 
 
 def heuristic(a, b):
-    """Tính heuristic (khoảng cách Manhattan) giữa hai điểm."""
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
 def get_valid_moves(maze, current_pos):
-    """Lấy danh sách các ô hợp lệ lân cận từ vị trí hiện tại."""
     if isinstance(current_pos, np.ndarray):
         current_pos = tuple(current_pos)
     elif not isinstance(current_pos, tuple):
@@ -30,7 +28,6 @@ def get_valid_moves(maze, current_pos):
 
 
 def a_star(maze, start, goal):
-    """Thuật toán A* tìm đường từ start đến goal."""
     frontier = []
     heapq.heappush(frontier, (0, start))
     came_from = {}
@@ -66,7 +63,6 @@ def a_star(maze, start, goal):
 
 
 def dfs(maze, start, goal, visited=None):
-    """Thuật toán DFS tìm đường từ start đến goal."""
     if visited is None:
         visited = set()
     if start == goal:
@@ -86,7 +82,6 @@ def dfs(maze, start, goal, visited=None):
 
 
 def find_path_dfs(maze, start, goal, items):
-    """Tìm đường bằng DFS qua tất cả items rồi đến goal."""
     path = []
     current_pos = start
 
@@ -108,7 +103,6 @@ def find_path_dfs(maze, start, goal, items):
 
 
 def find_path_astar(maze, start, goal, items):
-    """Tìm đường bằng A* qua tất cả items rồi đến goal."""
     path = []
     current_pos = start
 
@@ -129,90 +123,133 @@ def find_path_astar(maze, start, goal, items):
     return path
 
 
+def is_valid(pos, maze):
+    r, c = pos
+    return 0 <= r < len(maze) and 0 <= c < len(maze[0]) and maze[r][c] != 0
+
+
+def is_valid_path(path, maze):
+    """Kiểm tra xem đường đi có liên tục và hợp lệ không."""
+    if not path:
+        return False
+    for i in range(len(path) - 1):
+        r1, c1 = path[i]
+        r2, c2 = path[i + 1]
+        # Kiểm tra xem hai điểm liên tiếp có liền kề không
+        if not (abs(r1 - r2) + abs(c1 - c2) == 1 and is_valid(path[i + 1], maze)):
+            return False
+    return True
+
+
 def initial_solution(start, goal, maze):
-    """Tạo giải pháp ban đầu ngẫu nhiên với giới hạn lặp lại."""
-    path = [start]
-    current = start
-    max_attempts = 5000
-    attempts = 0
-    visited = set([start])
-    while current != goal and attempts < max_attempts:
-        valid_moves = get_valid_moves(maze, current)
-        valid_moves = [
-            move for move in valid_moves if move not in visited or move == goal]
-        if not valid_moves:
-            print(f"Không có nước đi hợp lệ từ {current}")
-            return []
-        next_pos = random.choice(valid_moves)
-        path.append(next_pos)
-        visited.add(next_pos)
-        current = next_pos
-        attempts += 1
-    if current != goal:
-        print(f"Không đến được {goal} từ {start}")
-        return []
-    return path
+    """Tìm đường đi ban đầu bằng BFS cho simulated annealing."""
+    visited = set()
+    queue = deque([(start, [start])])
+    while queue:
+        (r, c), path = queue.popleft()
+        if (r, c) == goal:
+            return path
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            next_pos = (nr, nc)
+            if is_valid(next_pos, maze) and next_pos not in visited:
+                visited.add(next_pos)
+                queue.append((next_pos, path + [next_pos]))
+    return []
 
 
-def cost(path):
-    """Tính chi phí của đường đi (độ dài)."""
-    return len(path) if path else float('inf')
+def bfs_segment(start, end, maze):
+    """Tìm đường đi ngắn nhất từ start đến end bằng BFS."""
+    visited = set()
+    queue = deque([(start, [start])])
+    while queue:
+        (r, c), path = queue.popleft()
+        if (r, c) == end:
+            return path
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            next_pos = (nr, nc)
+            if is_valid(next_pos, maze) and next_pos not in visited:
+                visited.add(next_pos)
+                queue.append((next_pos, path + [next_pos]))
+    return []
 
 
-def neighbor(path, maze):
-    """Tạo đường đi lân cận ngẫu nhiên."""
-    if not path or len(path) < 3:
+def neighbor(path, maze, start, goal):
+    """Tạo đường đi mới bằng cách thay thế một đoạn đường đi bằng một đường đi ngắn hơn."""
+    if len(path) < 3:
         return path
+
     new_path = copy.deepcopy(path)
 
-    idx = random.randint(1, len(new_path)-2)
-    valid_moves = get_valid_moves(maze, new_path[idx])
+    # Chọn ngẫu nhiên một đoạn đường đi để thay thế
+    i = random.randint(1, len(path) - 2)
+    j = random.randint(i + 1, len(path) - 1)
 
-    if valid_moves:
-        new_path[idx] = random.choice(valid_moves)
-        for i in range(idx, len(new_path)-1):
-            valid_next = get_valid_moves(maze, new_path[i])
-            if new_path[i+1] not in valid_next:
-                if valid_next:
-                    new_path[i+1] = random.choice(valid_next)
-                else:
-                    return path
+    # Tìm đường đi mới từ new_path[i-1] đến new_path[j] bằng BFS
+    segment_start = new_path[i - 1]
+    segment_end = new_path[j]
+
+    # Sử dụng BFS để tìm đường đi ngắn nhất giữa segment_start và segment_end
+    segment_path = bfs_segment(segment_start, segment_end, maze)
+    if not segment_path:
+        return new_path  # Nếu không tìm được đoạn đường mới, giữ nguyên đường đi cũ
+
+    # Thay thế đoạn từ i đến j-1 bằng segment_path
+    new_path = new_path[:i] + segment_path[1:] + new_path[j:]
+
     return new_path
 
 
-def acceptance_probability(old_cost, new_cost, temperature):
-    """Xác suất chấp nhận giải pháp mới trong Simulated Annealing."""
+def cost(path):
+    """Tính chi phí của đường đi, ưu tiên đường đi ngắn và ít khúc cua."""
+    if not path:
+        return float('inf')
+    length_cost = len(path)
+    # Thêm phạt cho các khúc cua
+    turn_cost = 0
+    for i in range(1, len(path) - 1):
+        prev = (path[i-1][0] - path[i][0], path[i-1][1] - path[i][1])
+        next = (path[i+1][0] - path[i][0], path[i+1][1] - path[i][1])
+        if prev != next and prev != (0, 0) and next != (0, 0):
+            turn_cost += 1
+    return length_cost + 0.5 * turn_cost
+
+
+def acceptance_probability(old_cost, new_cost, T):
     if new_cost < old_cost:
         return 1.0
-    return math.exp((old_cost - new_cost) / temperature)
+    return math.exp((old_cost - new_cost) / T)
 
 
 def simulated_annealing(maze, start, goal):
-    """Thuật toán Simulated Annealing tìm đường."""
     sol = initial_solution(start, goal, maze)
-    if not sol:
+    if not sol or sol[-1] != goal:
         print(f"Không tìm được đường từ {start} đến {goal}")
         return []
 
     old_cost = cost(sol)
-    T = 1.0
-    T_min = 0.00001
-    alpha = 0.95
-    max_iterations = 1000
+
+    T = 10000           # Nhiệt độ ban đầu
+    T_min = 1e-5        # Nhiệt độ dừng
+    alpha = 0.90        # Giảm nhiệt độ
+    max_iterations = 100  # Số vòng lặp nội tại mỗi nhiệt độ
 
     while T > T_min:
-        i = 1
-        while i <= max_iterations:
-            new_sol = neighbor(sol, maze)
+        for _ in range(max_iterations):
+            new_sol = neighbor(sol, maze, start, goal)
+            if not new_sol or new_sol[-1] != goal or not is_valid_path(new_sol, maze):
+                continue  # Bỏ qua giải pháp không hợp lệ
+
             new_cost = cost(new_sol)
             ap = acceptance_probability(old_cost, new_cost, T)
             if ap > random.random():
                 sol = new_sol
                 old_cost = new_cost
-            i += 1
-        T = T * alpha
 
-    if not sol or sol[-1] != goal:
+        T *= alpha  # Giảm nhiệt độ
+
+    if not sol or sol[-1] != goal or not is_valid_path(sol, maze):
         print(f"Giải pháp không hợp lệ: {sol}")
         return []
 
@@ -220,7 +257,6 @@ def simulated_annealing(maze, start, goal):
 
 
 def find_path_sa(maze, start, goal, items):
-    """Tìm đường bằng SA qua tất cả items rồi đến goal."""
     path = []
     current_pos = start
 
@@ -242,29 +278,13 @@ def find_path_sa(maze, start, goal, items):
 
 
 def backtracking_search(maze, start, goal, items, shields=None, traps=None):
-    """
-    Thuật toán Backtracking cải tiến tìm đường từ start đến goal, đi qua items, shields, và traps.
-
-    Parameters:
-    - maze: Mê cung (numpy array)
-    - start: Vị trí bắt đầu (x, y)
-    - goal: Vị trí đích (x, y)
-    - items: Danh sách vật phẩm cần thu thập [(x1, y1), (x2, y2), ...]
-    - shields: Danh sách vị trí khiên (tùy chọn) [(x1, y1), ...]
-    - traps: Danh sách vị trí bẫy (tùy chọn) [(x1, y1), ...]
-
-    Returns:
-    - path: Đường đi từ start qua tất cả items, shields, traps, đến goal
-    """
     shields = shields if shields is not None else []
     traps = traps if traps is not None else []
 
-    # Tập hợp tất cả các mục tiêu cần đi qua
     all_targets = set(items).union(shields).union(traps).union([goal])
     print(f"All targets to visit: {all_targets}")
 
     def is_consistent(value, var_index, assignment):
-        """Kiểm tra tính nhất quán của giá trị với ràng buộc."""
         if var_index == 0 and value != start:
             return False
         if var_index > 0:
@@ -274,39 +294,32 @@ def backtracking_search(maze, start, goal, items, shields=None, traps=None):
         return True
 
     def select_unassigned_variable(assignment, domains, remaining_targets):
-        """Chọn biến chưa gán dựa trên MRV và heuristic đến mục tiêu gần nhất."""
         unassigned = [i for i in range(
             len(assignment)) if assignment[i] is None]
         if not unassigned:
             return None
-        # MRV kết hợp với ưu tiên mục tiêu gần nhất
         return min(unassigned, key=lambda i: (len(domains[i]) if domains[i] else float('inf'),
                                               min(heuristic(start if i == 0 else assignment[i-1], t) for t in remaining_targets) if remaining_targets else 0))
 
     def order_domain_values(var_index, assignment, domains, remaining_targets):
-        """Sắp xếp miền giá trị dựa trên heuristic đến mục tiêu gần nhất."""
         if var_index == 0:
             return [start]
         prev_pos = assignment[var_index - 1]
         if prev_pos is None:
             return []
         valid_moves = get_valid_moves(maze, prev_pos)
-        # Loại bỏ các ô đã gán, trừ khi là goal
         valid_moves = [
             pos for pos in valid_moves if pos not in assignment[:var_index] or pos == goal]
         if remaining_targets:
-            # Ưu tiên ô gần mục tiêu còn lại
             return sorted(valid_moves, key=lambda pos: min(heuristic(pos, t) for t in remaining_targets))
         return sorted(valid_moves, key=lambda pos: heuristic(pos, goal))
 
     def backtrack(assignment, domains, remaining_targets, depth_limit=1000):
-        """Thuật toán Backtracking với giới hạn độ sâu."""
         if depth_limit <= 0:
             return None
         var = select_unassigned_variable(
             assignment, domains, remaining_targets)
         if var is None:
-            # Kiểm tra xem đã đi qua tất cả mục tiêu và đến goal
             if not remaining_targets and assignment[-1] == goal:
                 return assignment
             return None
@@ -328,11 +341,9 @@ def backtracking_search(maze, start, goal, items, shields=None, traps=None):
 
         return None
 
-    # Ước lượng độ dài đường đi tối đa
     max_steps = maze.shape[0] * maze.shape[1] * 2
     assignment = [None] * (max_steps + len(all_targets) + 1)
-    # Khởi tạo domains
-    assignment[0] = start  # Đặt vị trí bắt đầu
+    assignment[0] = start
     domains = [[] for _ in range(max_steps + len(all_targets) + 1)]
     domains[0] = [start]
     for i in range(1, len(domains)):
@@ -344,13 +355,11 @@ def backtracking_search(maze, start, goal, items, shields=None, traps=None):
     result = backtrack(assignment, domains, all_targets)
     if result is None:
         print(f"Backtracking failed, falling back to A* or initial solution")
-        # Thử A* làm giải pháp dự phòng
         path = find_path_astar(maze, start, goal, items)
         if not path:
             path = initial_solution(start, goal, maze)
         return path or []
 
-    # Xây dựng path từ assignment
     path = [pos for pos in result if pos is not None]
     if not path or path[-1] != goal:
         print(f"Path không hợp lệ: {path}, falling back to A*")
@@ -379,7 +388,7 @@ def is_valid_move_maze(maze, pos):
     x, y = pos
     rows = len(maze)
     cols = len(maze[0])
-    return 0 <= x < rows and 0 <= y < cols and maze[x][y] == 1  # 1 là đường
+    return 0 <= x < rows and 0 <= y < cols and maze[x][y] == 1
 
 
 def apply_action_maze(pos, action):
@@ -389,27 +398,23 @@ def apply_action_maze(pos, action):
 
 def apply_action_to_player_states(player_states, action, maze, goal):
     new_player_states = []
-    path_entry = action  # Mặc định là hành động bình thường
+    path_entry = action
     reached_goal = False
     reached_player_id = None
 
     for idx, (pos, has_reached) in enumerate(player_states):
         if has_reached:
-            # Người chơi đã đến đích, giữ nguyên trạng thái
             new_player_states.append((pos, True))
         else:
-            # Thử di chuyển người chơi
             new_pos = apply_action_maze(pos, action)
             if is_valid_move_maze(maze, new_pos):
                 new_player_states.append((new_pos, new_pos == goal))
                 if new_pos == goal:
                     reached_goal = True
-                    reached_player_id = idx + 1  # ID bắt đầu từ 1
+                    reached_player_id = idx + 1
             else:
-                # Không thể di chuyển, giữ nguyên
                 new_player_states.append((pos, False))
 
-    # Nếu có người chơi đến đích, cập nhật path_entry
     if reached_goal:
         path_entry = f"{action}"
 
@@ -421,7 +426,6 @@ def all_players_at_goal(player_states, goal):
 
 
 def search_no_observation_bfs_maze(maze, players, goal):
-    # Khởi tạo trạng thái cho từng người chơi: (vị trí, đã đến đích chưa)
     initial_player_states = tuple(
         ((p.grid_x, p.grid_y), (p.grid_x, p.grid_y) == goal) for p in players
     )
@@ -436,7 +440,6 @@ def search_no_observation_bfs_maze(maze, players, goal):
             continue
         visited.add(player_states)
 
-        # Nếu tất cả người chơi đã đến đích, trả về path
         if all_players_at_goal(player_states, goal):
             return path
 
@@ -450,9 +453,8 @@ def search_no_observation_bfs_maze(maze, players, goal):
 
 
 def get_valid_actions(maze, state):
-    """Return valid actions (moves) from the current state for Q-Learning."""
     row, col = state
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Up, Down, Left, Right
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     actions = []
     for i, (dx, dy) in enumerate(directions):
         next_pos = (row + dx, col + dy)
@@ -464,62 +466,50 @@ def get_valid_actions(maze, state):
 
 
 def step(maze, state, action):
-    """Execute an action from the current state, return next state and reward."""
     row, col = state
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Up, Down, Left, Right
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     dx, dy = directions[action]
     next_state = (row + dx, col + dy)
 
-    # Reward: -1 for each step to encourage shorter paths
     reward = -1
 
-    # Check if the move is valid
     if (0 <= next_state[0] < maze.shape[0] and
             0 <= next_state[1] < maze.shape[1] and
             maze[next_state[0], next_state[1]] == 1):
         return next_state, reward
     else:
-        # Invalid move: stay in the same state, negative reward
         return state, -10
 
 
 def epsilon_greedy_policy(state, Q, maze, epsilon):
-    """Choose an action using ε-greedy policy."""
     valid_actions = get_valid_actions(maze, state)
     if not valid_actions:
         return None
     if random.random() < epsilon:
-        # Explore: choose a random valid action
         return random.choice(valid_actions)
     else:
-        # Exploit: choose the action with the highest Q-value
         Q_values = [Q[state][a] if a in valid_actions else -
                     float('inf') for a in range(4)]
         return np.argmax(Q_values)
 
 
 def q_learning(maze, start, goal, episodes=10000, alpha0=0.05, decay=0.005, gamma=0.9, epsilon_start=1.0, epsilon_min=0.05, epsilon_decay=0.999):
-    """Q-Learning algorithm to find a path from start to goal."""
-    # Initialize Q-table: (rows, cols, actions)
     Q = np.zeros((maze.shape[0], maze.shape[1], 4))
 
     for episode in range(episodes):
         state = start
         epsilon = max(epsilon_min, epsilon_start * (epsilon_decay ** episode))
-        visited = set()  # Prevent infinite loops in single episode
+        visited = set()
         max_steps_per_episode = maze.shape[0] * maze.shape[1] * 2
 
         step_count = 0
         while state != goal and step_count < max_steps_per_episode:
-            # Choose action using ε-greedy policy
             action = epsilon_greedy_policy(state, Q, maze, epsilon)
             if action is None:
-                break  # No valid actions, terminate episode
+                break
 
-            # Take action, observe next state and reward
             next_state, reward = step(maze, state, action)
 
-            # Update Q-value
             next_Q = np.max(Q[next_state]) if get_valid_actions(
                 maze, next_state) else 0
             alpha = alpha0 / (1 + episode * decay)
@@ -530,14 +520,12 @@ def q_learning(maze, start, goal, episodes=10000, alpha0=0.05, decay=0.005, gamm
             visited.add(state)
             step_count += 1
 
-        # Optional: Add a large reward when reaching the goal
         if state == goal:
-            Q[state] = 0  # No further actions from goal
+            Q[state] = 0
 
-    # Extract the optimal path using the learned Q-values
     path = []
     state = start
-    max_steps = maze.shape[0] * maze.shape[1] * 2  # Prevent infinite loops
+    max_steps = maze.shape[0] * maze.shape[1] * 2
     step_count = 0
     visited = set()
 
@@ -551,12 +539,11 @@ def q_learning(maze, start, goal, episodes=10000, alpha0=0.05, decay=0.005, gamm
         if not valid_actions:
             print(f"Không tìm được đường từ {state} đến goal {goal}")
             return []
-        # Choose the action with the highest Q-value
         Q_values = [Q[state][a] if a in valid_actions else -
                     float('inf') for a in range(4)]
         action = np.argmax(Q_values)
         next_state, _ = step(maze, state, action)
-        if next_state == state:  # Stuck due to invalid move
+        if next_state == state:
             print(f"Đường đi bị kẹt tại {state}")
             return []
         state = next_state
@@ -572,7 +559,6 @@ def q_learning(maze, start, goal, episodes=10000, alpha0=0.05, decay=0.005, gamm
 
 
 def validate_inputs(maze, start, goal, items):
-    """Validate maze, start, goal, and items."""
     if not isinstance(maze, np.ndarray) or maze.size == 0:
         raise ValueError("Maze must be a non-empty NumPy array.")
     if not (0 <= start[0] < maze.shape[0] and 0 <= start[1] < maze.shape[1] and maze[start] == 1):
@@ -585,7 +571,6 @@ def validate_inputs(maze, start, goal, items):
 
 
 def find_path_qlearning(maze, start, goal, items):
-    """Find a path from start to goal via items using Q-Learning."""
     validate_inputs(maze, start, goal, items)
     path = []
     current_pos = start
