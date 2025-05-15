@@ -68,7 +68,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
   - ![Biểu đồ thể hiện kết quả thử nghiệm các thuật toán đối với người thám hiểm](images/bieu_do_1.jpg)
   - ![Biểu đồ thể hiện kết quả thử nghiệm các thuật toán đối với xác ướp](images/bieu_do_2.jpg)
 
-- **BFS**: 
+- **DFS**: 
 ```bash
     Ưu điểm: Nhanh trong các mê cung nhỏ, đơn giản triển khai.
     Nhược điểm: Đường đi dài , tỷ lệ va chạm xác ướp cao (30%), dễ kích hoạt bẫy (40%).
@@ -76,26 +76,26 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
    ```
 - **A***: 
 ```bash
-    Ưu điểm: Nhanh nhất (0.08s cho nhà thám hiểm, 0.05s cho xác ướp), đường đi ngắn (45 bước), tỷ lệ va chạm thấp (20% cho nhà thám hiểm, 40% cho xác ướp).
+    Ưu điểm: Nhanh nhất (0.08s cho nhà thám hiểm, 0.05s cho xác ướp), đường đi ngắn (trung bình 45 bước), tỷ lệ va chạm thấp (20% cho nhà thám hiểm, 40% cho xác ướp).
     Nhược điểm: Phụ thuộc vào heuristic Manhattan, kém hiệu quả nếu heuristic không tối ưu.
     Phù hợp: Mê cung có cấu trúc rõ ràng, cần đường đi tối ưu.
    ```
 - **Simulated Annealing**: 
 ```bash
-    Ưu điểm: Linh hoạt trong mê cung phức tạp, đường đi gần tối ưu (50 bước).
+    Ưu điểm: Linh hoạt trong mê cung phức tạp, đường đi gần tối ưu (trung bình 50 bước).
     Nhược điểm: Chậm hơn A* (0.25s), phụ thuộc vào tham số nhiệt độ, tỷ lệ va chạm cao (25%).
     Phù hợp: Môi trường cần khám phá đa dạng hoặc không yêu cầu tối ưu tuyệt đối.
    ```
 - **Backtracking**: 
 ```bash
-    Ưu điểm: Hiệu quả với ràng buộc phức tạp (đi qua tất cả vật phẩm, khiên, bẫy), đường đi ngắn (48 bước).
+    Ưu điểm: Hiệu quả với ràng buộc phức tạp (đi qua tất cả vật phẩm, khiên, bẫy), đường đi ngắn (trung bình 48 bước).
     Nhược điểm: Chậm (0.30s), có thể chậm trong mê cung nhiều ngõ cụt.
     Phù hợp: Mê cung có nhiều ràng buộc hoặc cần đảm bảo đi qua tất cả mục tiêu.
    ```
 - **Searching with No Observation (BFS-NoObs)**: 
 ```bash
     Ưu điểm: Phù hợp cho môi trường thiếu thông tin, điều khiển nhiều nhân vật.
-    Nhược điểm: Chậm nhất (0.40s), đường đi dài (52 bước), tỷ lệ va chạm (35%) và kích hoạt bẫy cao (45%).
+    Nhược điểm: Chậm nhất (0.40s), đường đi dài (trung bình 52 bước), tỷ lệ va chạm (35%) và kích hoạt bẫy cao (45%).
     Phù hợp: Kịch bản đặc biệt với thông tin hạn chế.
    ```
 - **Q-Learning**: Linh hoạt, thích nghi tốt với môi trường phức tạp, nhưng tốn tài nguyên và không ổn định về đường đi.
