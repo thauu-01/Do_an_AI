@@ -10,15 +10,17 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
 - **Gameplay năng động**: Nhà thám hiểm thu thập vật phẩm, tránh bẫy, và né xác ướp; xác ướp chuyển từ trạng thái ngủ sang truy đuổi khi bẫy được kích hoạt.
 - **Thuật toán AI**: Hỗ trợ DFS, A*, Simulated Annealing, Backtracking, Searching with No Observation (BFS-NoObs), và Q-Learning.
 - **Bản đồ tùy chỉnh**:Tạo ngẫu nhiên hoặc tải từ file, với các mức độ khó (Dễ, Trung bình, Khó) và kích thước cố định (21x15 theo cấu hình mặc định).
-  - ![Bản đồ Map 1](assets/images/map_1_preview.png)
-  - ![Bản đồ Map 2](assets/images/map_2_preview.png)
-  - ![Bản đồ Map 3](assets/images/map_3_preview.png)
+  - ![Bản đồ Map Dễ](images/map_easy.jpg)
+  - ![Bản đồ Map Trung Bình](images/map_medium.jpg)
+  - ![Bản đồ Map Khó](images/map_hard.jpg)
 - **Bẫy và khiên**: Bẫy kích hoạt xác ướp; khiên bảo vệ nhà thám hiểm khỏi xác ướp trong thời gian ngắn ( xác ướp bị đóng băng ).
 - **Chế độ chơi**: Tên trộm có thanh máu; người chủ có thanh thể lực ảnh hưởng khả năng đuổi bắt.
+        - ![Choose Mode](images/map_hard.jpg)
         - **Player vs AI**: Người chơi điều khiển nhà thám hiểm, xác ướp do AI điều khiển.
         - **AI vs AI**: Cả nhà thám hiểm và xác ướp do AI điều khiển.
 - **Âm thanh**: Nhạc nền Ai Cập cổ đại và hiệu ứng âm thanh khi thu thập vật phẩm, kích hoạt bẫy, hoặc game over.
 - **Menu**: Chọn chế độ chơi, thuật toán cho nhà thám hiểm và xác ướp, mức độ khó, bản đồ, bật/tắt âm thanh.
+        - ![Main Menu](images/map_hard.jpg)
 - **Lưu trạng thái**: Hỗ trợ lưu và tiếp tục trò chơi từ trạng thái đã lưu.
 - **Thống kê**: Ghi lại thời gian, số vật phẩm thu thập, và kết quả (thắng/thua)
 
@@ -53,6 +55,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
    - Nhấn **ESC** quay lại menu hoặc thoát game.
 4. **Kết thúc**:
    - Thành công: Thu thập đủ 5 vật phẩm và đến đích.
+   - ![Bản đồ Map 1](assets/images/map_1_preview.png)
    - Thất bại: Bị xác ướp bắt.
 ## Demo trò chơi
 | Thuật toán | GIF |
