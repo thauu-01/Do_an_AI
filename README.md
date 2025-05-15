@@ -55,7 +55,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
    - Nhấn **ESC** quay lại menu hoặc thoát game.
 4. **Kết thúc**:
    - Thành công: Thu thập đủ 5 vật phẩm và đến đích.
-   - ![Bản đồ Map 1](assets/images/map_1_preview.png)
+   - ![Win](/images/win.jpg)
    - Thất bại: Bị xác ướp bắt.
 ## Demo trò chơi
 | Thuật toán | GIF |
