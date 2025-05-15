@@ -15,12 +15,12 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
   - ![Bản đồ Map Khó](images/map_hard.jpg)
 - **Bẫy và khiên**: Bẫy kích hoạt xác ướp; khiên bảo vệ nhà thám hiểm khỏi xác ướp trong thời gian ngắn ( xác ướp bị đóng băng ).
 - **Chế độ chơi**: Tên trộm có thanh máu; người chủ có thanh thể lực ảnh hưởng khả năng đuổi bắt.
-        - ![Choose Mode](images/map_hard.jpg)
+        - ![Choose Mode](images/choose_mode.jpg)
         - **Player vs AI**: Người chơi điều khiển nhà thám hiểm, xác ướp do AI điều khiển.
         - **AI vs AI**: Cả nhà thám hiểm và xác ướp do AI điều khiển.
 - **Âm thanh**: Nhạc nền Ai Cập cổ đại và hiệu ứng âm thanh khi thu thập vật phẩm, kích hoạt bẫy, hoặc game over.
 - **Menu**: Chọn chế độ chơi, thuật toán cho nhà thám hiểm và xác ướp, mức độ khó, bản đồ, bật/tắt âm thanh.
-        - ![Main Menu](images/map_hard.jpg)
+        - ![Main Menu](images/main_menu.jpg)
 - **Lưu trạng thái**: Hỗ trợ lưu và tiếp tục trò chơi từ trạng thái đã lưu.
 - **Thống kê**: Ghi lại thời gian, số vật phẩm thu thập, và kết quả (thắng/thua)
 
