@@ -1,12 +1,12 @@
 # Do_an_AI
-# Ancient Egypt Maze Adventure
+# 🗺️ Ancient Egypt Maze Adventure
 
 ## Giới thiệu
 Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, được xây dựng bằng Pygame, lấy bối cảnh Ai Cập cổ đại với các yếu tố như kim tự tháp, xác ướp, và kho báu. Người chơi hoặc AI điều khiển nhà thám hiểm (human) để thu thập 5 vật phẩm, tránh bẫy, né xác ướp, và đến đích an toàn. Xác ướp được kích hoạt khi bẫy được chạm vào và sử dụng các thuật toán AI để truy đuổi nhà thám hiểm. Trò chơi hỗ trợ nhiều thuật toán tìm đường và các mê cung với độ khó khác nhau.
 
 ![Giao diện chính của game](assets/images/menu_screenshot.png)
 
-## Tính năng
+## 🔧 Tính năng
 - **Gameplay năng động**: Nhà thám hiểm thu thập vật phẩm, tránh bẫy, và né xác ướp; xác ướp chuyển từ trạng thái ngủ sang truy đuổi khi bẫy được kích hoạt.
 - **Thuật toán AI**: Hỗ trợ DFS, A*, Simulated Annealing, Backtracking, Searching with No Observation (BFS-NoObs), và Q-Learning.
 - **Bản đồ tùy chỉnh**:Tạo ngẫu nhiên hoặc tải từ file, với các mức độ khó (Dễ, Trung bình, Khó) và kích thước cố định (21x15 theo cấu hình mặc định).
@@ -25,7 +25,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
 
 
 
-## Cài đặt
+## ⚙️ Cài đặt
 1. **Clone Repository**:
    ```bash
    git clone https://github.com/thauu-01/Do_an_AI.git
@@ -37,7 +37,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
    pip install pygame pytmx numpy
    ```
 
-## Cách chơi
+## 🎮 Cách chơi
 1. **Khởi động**:
    ```bash
    python main.py
@@ -63,7 +63,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
 | **BeamSearch** | <img src="assets/images/beam.gif" width="600" alt="Beam Search"> |
 | **Q-Learning** | <img src="assets/images/qlearning.gif" width="600" alt="Q-Learning"> |
 
-## Hiệu suất thuật toán
+## 📈 Hiệu suất thuật toán
 
   - ![Biểu đồ thể hiện kết quả thử nghiệm các thuật toán đối với người thám hiểm](images/bieu_do_1.jpg)
   - ![Biểu đồ thể hiện kết quả thử nghiệm các thuật toán đối với xác ướp](images/bieu_do_2.jpg)
@@ -105,7 +105,7 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
     Phù hợp: Môi trường phức tạp, cần học hành vi dài hạn.
    ```
 
-## Tác giả
+## 📝 Tác giả
 **Nhóm 17**
 - Trần Thành Trung - 23110351
 - Nguyễn Trung Hậu - 23110212
