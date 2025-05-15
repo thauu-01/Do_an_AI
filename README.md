@@ -62,12 +62,12 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
 ## Demo trò chơi
 | Thuật toán | GIF |
 |------------|-----|
-| **DFS** | <img src="images/bfs.gif" width="600" alt="DFS"> |
-| **ASTAR** | <img src="images/astar.gif" width="600" alt="ASTAR"> |
-| **Simulated Annealing** | <img src="images/partialobservation.gif" width="600" alt="Simulated Annealing"> |
-| **Backtracking** | <img src="images/beam.gif" width="600" alt="Backtracking"> |
-| **BFS-NoObs** | <img src="images/beam.gif" width="600" alt="BFS-NoObs"> |
-| **Q-Learning** | <img src="images/qlearning.gif" width="600" alt="Q-Learning"> |
+| **DFS** | <img src="images/dfs.gif" width="600" alt="DFS"> |
+| **ASTAR** | <img src="images/a_star.gif" width="600" alt="ASTAR"> |
+| **Simulated Annealing** | <img src="images/simulated_annealing.gif" width="600" alt="Simulated Annealing"> |
+| **Backtracking** | <img src="images/backtracking.gif" width="600" alt="Backtracking"> |
+| **BFS-NoObs** | <img src="images/no_observation.gif" width="600" alt="BFS-NoObs"> |
+| **Q-Learning** | <img src="images/q_learning.gif" width="600" alt="Q-Learning"> |
 
 ## 📈 Hiệu suất thuật toán
 
