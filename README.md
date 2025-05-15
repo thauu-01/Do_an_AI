@@ -4,11 +4,12 @@
 ## Giới thiệu
 Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, được xây dựng bằng Pygame, lấy bối cảnh Ai Cập cổ đại với các yếu tố như kim tự tháp, xác ướp, và kho báu. Người chơi hoặc AI điều khiển nhà thám hiểm (human) để thu thập 5 vật phẩm, tránh bẫy, né xác ướp, và đến đích an toàn. Xác ướp được kích hoạt khi bẫy được chạm vào và sử dụng các thuật toán AI để truy đuổi nhà thám hiểm. Trò chơi hỗ trợ nhiều thuật toán tìm đường và các mê cung với độ khó khác nhau.
 
-![Giao diện chính của game](assets/images/menu_screenshot.png)
+![Main](images/main.jpg)
 
 ## 🔧 Tính năng
 - **Gameplay năng động**: Nhà thám hiểm thu thập vật phẩm, tránh bẫy, và né xác ướp; xác ướp chuyển từ trạng thái ngủ sang truy đuổi khi bẫy được kích hoạt.
 - **Thuật toán AI**: Hỗ trợ DFS, A*, Simulated Annealing, Backtracking, Searching with No Observation (BFS-NoObs), và Q-Learning.
+  - ![Thuật toán](images/algorithm.jpg)
 - **Bản đồ tùy chỉnh**:Tạo ngẫu nhiên hoặc tải từ file, với các mức độ khó (Dễ, Trung bình, Khó) và kích thước cố định (21x15 theo cấu hình mặc định).
   - ![Bản đồ Map Dễ](images/map_easy.jpg)
   - ![Bản đồ Map Trung Bình](images/map_medium.jpg)
@@ -57,14 +58,16 @@ Ancient Egypt Maze Adventure là một trò chơi 2D dựa trên lưới, đư�
    - Thành công: Thu thập đủ 5 vật phẩm và đến đích.
    - ![Win](/images/win.jpg)
    - Thất bại: Bị xác ướp bắt.
+   - ![Lose](/images/lose.jpg)
 ## Demo trò chơi
 | Thuật toán | GIF |
 |------------|-----|
-| **BFS** | <img src="assets/images/bfs.gif" width="600" alt="BFS"> |
-| **ASTAR** | <img src="assets/images/astar.gif" width="600" alt="ASTAR"> |
-| **PartialObservation** | <img src="assets/images/partialobservation.gif" width="600" alt="Partial Observation"> |
-| **BeamSearch** | <img src="assets/images/beam.gif" width="600" alt="Beam Search"> |
-| **Q-Learning** | <img src="assets/images/qlearning.gif" width="600" alt="Q-Learning"> |
+| **DFS** | <img src="images/bfs.gif" width="600" alt="DFS"> |
+| **ASTAR** | <img src="images/astar.gif" width="600" alt="ASTAR"> |
+| **Simulated Annealing** | <img src="images/partialobservation.gif" width="600" alt="Simulated Annealing"> |
+| **Backtracking** | <img src="images/beam.gif" width="600" alt="Backtracking"> |
+| **BFS-NoObs** | <img src="images/beam.gif" width="600" alt="BFS-NoObs"> |
+| **Q-Learning** | <img src="images/qlearning.gif" width="600" alt="Q-Learning"> |
 
 ## 📈 Hiệu suất thuật toán
 
